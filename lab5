@@ -1,0 +1,104 @@
+#! /usr/bin/python3
+import cgi, os, json, MySQLdb, passwords
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+def lab5():
+    print("Content-type:text/html")
+    print("Status: 200 OK")
+    print()
+    print("<h1>Lab 5: Rest</h1>")
+    print("<a href='/cgi-bin/lab5/pets'>Show Pets</a><br>")
+    print("<a href='/cgi-bin/lab5/add_pets'>Add Pets</a>")
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+def get_pet_id(pet_id=None):
+    print("Content-type:application/json")
+    print("Status: 200 OK")
+    print()
+    if pet_id:
+
+        conn = MySQLdb.connect(host= passwords.SQL_HOST,user= passwords.SQL_USER,passwd= passwords.SQL_PASSWD,db= "pet_club")
+
+        cursor = conn.cursor()
+        cursor.execute("SELECT FROM pets WHERE id=%s;", pet_id)
+        results = cursor.fetchall()
+        db = []
+        for i in range(len(results)):
+            db.append({i:{"Id":results[i][0], "Species": results[i][1], "Name": results[i][2],"Owner":results[i][3]}})
+        x_results = json.dumps(db)
+
+        print(x_results)
+
+    else:    
+        conn = MySQLdb.connect(host= passwords.SQL_HOST,user= passwords.SQL_USER,passwd= passwords.SQL_PASSWD,db= "pet_club")
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM pets;")
+
+        results = cursor.fetchall()
+        db = [{i:{"Id":results[i][0], "Species": results[i][1], "Name": results[i][2],"Owner":results[i][3]}} for i in range(len(results))]
+
+        x_results = json.dumps(db)
+
+        print(x_results)
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+def add_pet():
+    print("Content-type:text/html")
+    print("Status: 200 OK")
+    print()
+    conn = MySQLdb.connect(host= passwords.SQL_HOST,user= passwords.SQL_USER,passwd= passwords.SQL_PASSWD,db= "pet_club")
+
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM people;")
+    results = cursor.fetchall()
+    html = "<body>Select the member that bought a pet:<form action='/cgi-bin/lab5' method = 'get' ><select name='owner_id'>"
+
+    for record in results:
+        html += "<option value={} selected>{}</option>".format(record[0], record[0])
+    html += "</select><br/>Species: <input type = 'text' name = 'species'><br/>Name: <input type = 'text' name = 'name'><br/>"
+    html += "<input type='submit' value='Submit'/></form></body>"
+    print(html)
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+def update_pets():
+    form = cgi.FieldStorage()
+    species = name = ""
+
+    if "species" in form:
+        species = form["species"].value.title()
+    if "name" in form:
+        name = form["name"].value.title()
+    owner_id = form["owner_id"].value
+    if species and name:
+        conn = MySQLdb.connect(host= passwords.SQL_HOST,user= passwords.SQL_USER,passwd= passwords.SQL_PASSWD,db= "pet_club")
+
+        cursor = conn.cursor()
+
+        cursor.execute("INSERT INTO pets(species, name, owner_id) VALUES(%s, %s, %s);",(species, name, owner_id))
+
+        conn.commit()
+        conn.close()
+        return
+    print("Status: 302 Redirect")
+    print("Location: lab_5")
+    print()
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+if "PATH_INFO" in os.environ:
+    pathinfo = os.environ["PATH_INFO"]
+else:
+    pathinfo = "/cgi-bin/lab5"
+
+
+if pathinfo == "/cgi-bin/lab5" or pathinfo == "/cgi-bin/lab5/":
+    lab5()
+elif pathinfo == "/pets" or pathinfo =="/pets/":
+    get_pet_id()
+elif pathinfo.split('/')[-1].isdigit() and pathinfo.split('/')[1] == "pets":
+    get_pet_id(pathinfo.split('/')[-1])
+elif pathinfo == "/add_pets" or pathinfo == "/add_pets/":
+    add_pet()
+else:
+    print("Status: 404 Not Found")
+    print()
+
+    print("The CGI path '{}', underneath the 'pathinfo' tool, was not a valid URL.".format(pathinfo))
